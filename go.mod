@@ -1,3 +1,3 @@
-module github.com/eggbertx/durationutil
+module github.com/Eggbertx/durationutil
 
-go 1.18
+go 1.14
