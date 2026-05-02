@@ -4,14 +4,100 @@ import (
 	"errors"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
-var (
-	ErrEmptyDurationString   = errors.New("empty duration string")
-	ErrInvalidDurationString = errors.New("invalid duration string")
-	durationRegexp           = regexp.MustCompile(`^((\d+)\s?ye?a?r?s?)?\s?((\d+)\s?mon?t?h?s?)?\s?((\d+)\s?we?e?k?s?)?\s?((\d+)\s?da?y?s?)?\s?((\d+)\s?ho?u?r?s?)?\s?((\d+)\s?mi?n?u?t?e?s?)?\s?((\d+)\s?s?e?c?o?n?d?s?)?$`)
+const (
+	Day   ExtendedDuration = ExtendedDuration(24 * time.Hour)
+	Week                   = 7 * Day
+	Month                  = 30 * Day
+	Year                   = 365 * Day
 )
+
+var (
+	ErrEmptyDurationString = errors.New("empty duration string")
+
+	// ErrInvalidDurationString represents an invalid duration string
+	//
+	// Deprecated: ParseLongerDuration now returns an InvalidDurationStringError typed error with the specific invalid value
+	ErrInvalidDurationString error = &InvalidDurationStringError{""}
+	durationRegexp                 = regexp.MustCompile(`^((\d+)\s?ye?a?r?s?)?\s?((\d+)\s?mon?t?h?s?)?\s?((\d+)\s?we?e?k?s?)?\s?((\d+)\s?da?y?s?)?\s?((\d+)\s?ho?u?r?s?)?\s?((\d+)\s?mi?n?u?t?e?s?)?\s?((\d+)\s?s?e?c?o?n?d?s?)?$`)
+)
+
+// ExtendedDuration is a wrapper around time.Duration that can be encoded into and decoded from JSON using durations
+// that include years, months, weeks, and days
+type ExtendedDuration time.Duration
+
+func (ed *ExtendedDuration) UnmarshalJSON(ba []byte) (err error) {
+	baStr := strings.Trim(string(ba), `"`)
+	dur, err := ParseLongerDuration(baStr)
+	if err == nil {
+		*ed = ExtendedDuration(dur)
+	}
+	return err
+}
+
+func (ed ExtendedDuration) String() string {
+	var years int
+	var weeks int
+	var days int
+
+	trimmed := ed
+	for trimmed >= Year {
+		years++
+		trimmed -= Year
+	}
+	for trimmed >= Week {
+		weeks++
+		trimmed -= Week
+	}
+	for trimmed >= Day {
+		days++
+		trimmed -= Day
+	}
+	var strOut string
+	if years > 0 {
+		strOut += strconv.Itoa(years) + "y"
+	}
+	if weeks > 0 {
+		strOut += strconv.Itoa(weeks) + "w"
+	}
+	if days > 0 {
+		strOut += strconv.Itoa(days) + "d"
+	}
+	if trimmed > 0 {
+		strOut += time.Duration(trimmed).String()
+	}
+	return strOut
+}
+
+func (ed *ExtendedDuration) MarshalJSON() ([]byte, error) {
+	if ed == nil {
+		return nil, nil
+	}
+
+	return []byte(`"` + ed.String() + `"`), nil
+}
+
+type InvalidDurationStringError struct {
+	Value string
+}
+
+func (e *InvalidDurationStringError) Error() string {
+	if e == nil || e.Value == "" {
+		return "invalid duration string"
+	}
+	return "invalid duration string: " + e.Value
+}
+
+func (e *InvalidDurationStringError) Is(err error) bool {
+	if err == nil {
+		return false
+	}
+	asE, ok := err.(*InvalidDurationStringError)
+	return ok && asE.Value == e.Value
+}
 
 // ParseLongerDuration parses the given string into a duration and returns any errors.
 // Based on TinyBoard's parse_time function
@@ -22,7 +108,7 @@ func ParseLongerDuration(str string) (time.Duration, error) {
 
 	matches := durationRegexp.FindAllStringSubmatch(str, -1)
 	if len(matches) == 0 {
-		return 0, ErrInvalidDurationString
+		return 0, &InvalidDurationStringError{Value: str}
 	}
 
 	var duration int

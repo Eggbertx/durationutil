@@ -2,7 +2,7 @@
 A wrapper around time.ParseDuration that adds flexibility and larger time units (days, weeks, months, years)
 
 ## Usage
-durationutil provides the function `ParseLongerDuration`, which is meant for parsing strings representing longer durations than the `time` package provides, and in a more verbose, but more readable format, though it does not recognize any unit shorter than a second
+durationutil provides the function `ParseLongerDuration`, which is meant for parsing strings representing longer durations than the `time` package provides, and in a more verbose, but more readable format, though it does not recognize any unit shorter than a second, and units must be in descending order.
 
 ```Go
 // with units separated by spaces
@@ -30,5 +30,10 @@ if err != nil {
 }
 ```
 In the above example, `duration1`, `duration2`, `duration3`, and `duration4` are all equal. `ParseLongerDuration` allows you to skip units (for example, `"1y 2d 3s"`), but expects them to be already sorted longest to shortest in descending order.
+
+The type `ExtendedDuration` can be used to encode and decode directly from/to a string value in JSON
+
+## Error handling
+The function `ParseLongerDuration` returns the error `ErrEmptyDurationString` if the provided string is empty, or an error of type `InvalidDurationStringError` if the provided string is an invalid format.
 
 See [durationutil_test.go](./durationutil_test.go) for more usage info.
