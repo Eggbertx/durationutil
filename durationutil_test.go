@@ -68,9 +68,10 @@ func TestParseLongerDuration(t *testing.T) {
 }
 
 type testStruct struct {
-	Years  []ExtendedDuration
-	Months []ExtendedDuration
-	Weeks  []ExtendedDuration
+	Years  []ExtendedDuration `json:",omitempty"`
+	Months []ExtendedDuration `json:",omitempty"`
+	Weeks  []ExtendedDuration `json:",omitempty"`
+	Zero   ExtendedDuration
 }
 
 func TestEncodingDecodingJSON(t *testing.T) {
@@ -121,7 +122,7 @@ func TestEncodingDecodingJSON(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error encoding JSON: %v", err)
 		}
-		tcEncodedExpect := []byte(`{"Years":["1y","2y","3y","4y","5y51w2d23h59m59s"],"Months":["4w2d","4w2d","4w2d","4w2d"],"Weeks":["1w","1w","1w","1w2m0s"]}`)
+		tcEncodedExpect := []byte(`{"Years":["1y","2y","3y","4y","5y51w2d23h59m59s"],"Months":["4w2d","4w2d","4w2d","4w2d"],"Weeks":["1w","1w","1w","1w2m0s"],"Zero":""}`)
 		if tcEncoded == nil || string(tcEncoded) != string(tcEncodedExpect) {
 			t.Fatalf("Expected encoded JSON to be %s, got %s", string(tcEncodedExpect), string(tcEncoded))
 		}
@@ -150,6 +151,25 @@ func TestEncodingDecodingJSON(t *testing.T) {
 		err = json.Unmarshal([]byte("null"), &edUnmarshal)
 		if !errors.Is(err, &InvalidDurationStringError{Value: "null"}) {
 			t.Fatalf("Expected %v when unmarshaling null, got %v", &InvalidDurationStringError{Value: "null"}, err)
+		}
+	})
+
+	t.Run("empty string handling in JSON", func(t *testing.T) {
+		var tc testStruct
+		err = json.Unmarshal([]byte(`{"Zero":""}`), &tc)
+		if err != nil {
+			t.Fatalf("Error unmarshaling empty string: %v", err)
+		}
+		if tc.Zero != 0 {
+			t.Fatalf("Expected unmarshaled empty string to be 0, got %v", tc.Zero)
+		}
+
+		jsonData, err := json.Marshal(tc)
+		if err != nil {
+			t.Fatalf("Error marshaling zero ExtendedDuration: %v", err)
+		}
+		if string(jsonData) != `{"Zero":""}` {
+			t.Fatalf("Expected marshaled zero ExtendedDuration to be empty string, got %s", string(jsonData))
 		}
 	})
 }

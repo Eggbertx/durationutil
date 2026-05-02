@@ -26,11 +26,16 @@ var (
 )
 
 // ExtendedDuration is a wrapper around time.Duration that can be encoded into and decoded from JSON using durations
-// that include years, months, weeks, and days
+// that include years, months, weeks, and days. If the string is blank, the duration will be set to 0, instead of
+// returning an error like ParseLongerDuration
 type ExtendedDuration time.Duration
 
 func (ed *ExtendedDuration) UnmarshalJSON(ba []byte) (err error) {
 	baStr := strings.Trim(string(ba), `"`)
+	if baStr == "" {
+		*ed = 0
+		return nil
+	}
 	dur, err := ParseLongerDuration(baStr)
 	if err == nil {
 		*ed = ExtendedDuration(dur)
@@ -72,9 +77,9 @@ func (ed ExtendedDuration) String() string {
 	return strOut
 }
 
-func (ed *ExtendedDuration) MarshalJSON() ([]byte, error) {
-	if ed == nil {
-		return nil, nil
+func (ed ExtendedDuration) MarshalJSON() ([]byte, error) {
+	if ed == 0 {
+		return []byte(`""`), nil
 	}
 
 	return []byte(`"` + ed.String() + `"`), nil
